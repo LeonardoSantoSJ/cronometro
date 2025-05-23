@@ -1,0 +1,170 @@
+/* Estilos gerais */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    color: #333;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+/* Estilos do cronômetro */
+.timer-display {
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.timer-value {
+    font-weight: 700;
+    color: #0d6efd;
+    font-family: 'Courier New', Courier, monospace;
+    letter-spacing: 2px;
+}
+
+.timer-info {
+    color: #6c757d;
+}
+
+.timer-controls {
+    margin-top: 1.5rem;
+}
+
+.timer-controls .btn {
+    min-width: 120px;
+}
+
+/* Estilos para o card principal */
+.card {
+    border: none;
+    border-radius: 15px;
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.card-body {
+    padding: 2rem;
+}
+
+/* Estilos para as abas */
+.nav-tabs {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.nav-tabs .nav-link {
+    margin-bottom: -2px;
+    border: none;
+    color: #6c757d;
+    font-weight: 500;
+    padding: 0.75rem 1.25rem;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: transparent;
+    color: #0d6efd;
+}
+
+.nav-tabs .nav-link.active {
+    color: #0d6efd;
+    background-color: transparent;
+    border-bottom: 3px solid #0d6efd;
+}
+
+.tab-content {
+    padding-top: 1.5rem;
+}
+
+/* Estilos para tabelas */
+.table {
+    vertical-align: middle;
+}
+
+.table th {
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+
+/* Estilos para gráficos */
+.chart-container {
+    margin-top: 1.5rem;
+}
+
+/* Estilos para botões */
+.btn-group-lg>.btn {
+    padding: 0.75rem 1.25rem;
+}
+
+/* Estilos para o modal */
+.modal-content {
+    border-radius: 15px;
+    border: none;
+}
+
+.modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.modal-footer {
+    border-top: 1px solid #dee2e6;
+}
+
+/* Estilos responsivos */
+@media (max-width: 768px) {
+    .timer-value {
+        font-size: 3rem;
+    }
+    
+    .timer-controls .btn {
+        min-width: auto;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .btn-group-lg>.btn {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .card-body {
+        padding: 1.25rem;
+    }
+}
+
+/* Animações */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.timer-running .timer-value {
+    animation: pulse 2s infinite;
+    color: #198754;
+}
+
+.timer-paused .timer-value {
+    color: #ffc107;
+}
+
+/* Estilos para alertas e notificações */
+.alert {
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+/* Estilos para o botão de exportação PDF */
+#export-pdf-btn {
+    transition: all 0.3s ease;
+}
+
+#export-pdf-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
