@@ -6,7 +6,9 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1200px; /* Bootstrap handles responsiveness, this is just a max */
+    padding-left: 15px; /* Add padding consistent with Bootstrap */
+    padding-right: 15px; /* Add padding consistent with Bootstrap */
 }
 
 /* Estilos do cronômetro */
@@ -22,6 +24,7 @@ body {
     color: #0d6efd;
     font-family: 'Courier New', Courier, monospace;
     letter-spacing: 2px;
+    /* Font size handled by Bootstrap display class and media queries */
 }
 
 .timer-info {
@@ -89,6 +92,9 @@ body {
 /* Estilos para gráficos */
 .chart-container {
     margin-top: 1.5rem;
+    position: relative; /* Needed for Chart.js responsiveness */
+    height: 300px; /* Base height, adjusted in media queries */
+    width: 100%; /* Ensure it takes full width */
 }
 
 /* Estilos para botões */
@@ -112,24 +118,138 @@ body {
 }
 
 /* Estilos responsivos */
-@media (max-width: 768px) {
+
+/* Medium devices (tablets, less than 992px) */
+@media (max-width: 991.98px) {
+    /* Minor adjustments if needed for tablets, Bootstrap handles most */
+}
+
+/* Small devices (landscape phones, less than 768px) */
+@media (max-width: 767.98px) {
+    h1 {
+        font-size: 2rem; /* Adjust heading size */
+    }
+
     .timer-value {
-        font-size: 3rem;
+        font-size: 3rem; /* Adjusted timer font size */
     }
-    
+
     .timer-controls .btn {
-        min-width: auto;
-        padding: 0.5rem 0.75rem;
+        min-width: auto; /* Remove fixed min-width */
+        padding: 0.5rem 0.75rem; /* Adjust button padding */
     }
-    
+
     .btn-group-lg>.btn {
-        padding: 0.5rem 0.75rem;
+        padding: 0.5rem 0.75rem; /* Adjust large button group padding */
     }
-    
+
     .card-body {
-        padding: 1.25rem;
+        padding: 1.25rem; /* Reduce card padding */
+    }
+
+    .nav-tabs .nav-link {
+        padding: 0.6rem 1rem; /* Adjust nav link padding */
+    }
+
+    .alert {
+        padding: 0.75rem; /* Adjust alert padding */
+    }
+
+    .filter-controls .col-md-4,
+    .report-controls .col-md-4 {
+        /* Ensure controls stack correctly if needed, Bootstrap grid should handle this */
     }
 }
+
+/* Extra small devices (portrait phones, less than 576px) */
+@media (max-width: 575.98px) {
+    h1 {
+        font-size: 1.75rem; /* Further reduce heading size */
+    }
+
+    .timer-value {
+        font-size: 2.5rem; /* Further reduce timer font size */
+        letter-spacing: 1px; /* Reduce letter spacing */
+    }
+
+    .timer-info small {
+        font-size: 0.8rem; /* Adjust info text size */
+    }
+
+    .card-body {
+        padding: 1rem; /* Further reduce card padding */
+    }
+
+    .form-label {
+        font-size: 0.9rem; /* Adjust form label size */
+    }
+
+    .btn-group-lg {
+        /* Ensure buttons wrap or stack nicely */
+        flex-wrap: wrap; /* Allow buttons to wrap */
+        gap: 0.5rem; /* Add gap between wrapped buttons */
+    }
+
+    .btn-group-lg > .btn {
+        /* Allow buttons to grow and fill space when wrapped/stacked */
+        flex-grow: 1;
+        min-width: 100px; /* Ensure a minimum tap target size */
+    }
+
+    .nav-tabs {
+        font-size: 0.9rem; /* Adjust tab font size */
+    }
+
+    .nav-tabs .nav-link {
+        padding: 0.5rem 0.75rem; /* Further reduce nav link padding */
+    }
+
+    .tab-content {
+        padding-top: 1rem; /* Reduce tab content padding */
+    }
+
+    /* Force stacking for filter/report controls */
+    .filter-controls .row > *,
+    .report-controls .row > * {
+        flex-basis: 100%;
+        max-width: 100%;
+        margin-bottom: 0.75rem; /* Add space between stacked controls */
+    }
+
+    .filter-controls .d-flex,
+    .report-controls .d-flex {
+        align-items: stretch !important; /* Ensure button stretches */
+    }
+
+    .filter-controls .btn,
+    .report-controls .btn {
+        width: 100% !important; /* Make buttons full width */
+        margin-top: 0; /* Reset margin-top if added previously */
+    }
+
+    .table th, .table td {
+        font-size: 0.85rem; /* Adjust table font size */
+        padding: 0.5rem; /* Adjust table cell padding */
+    }
+
+    .chart-container {
+        height: 250px; /* Reduce chart height */
+    }
+
+    #export-pdf-btn {
+        font-size: 0.9rem; /* Adjust export button size */
+        padding: 0.4rem 0.8rem;
+    }
+
+    .modal-body, .modal-footer {
+        font-size: 0.9rem; /* Adjust modal font size */
+    }
+
+    .modal-body .form-label {
+        font-size: 0.9rem; /* Ensure modal label size is consistent */
+    }
+}
+
 
 /* Animações */
 @keyframes pulse {
@@ -156,7 +276,7 @@ body {
 /* Estilos para alertas e notificações */
 .alert {
     border-radius: 10px;
-    padding: 1rem;
+    padding: 1rem; /* Base padding, adjusted in media queries */
 }
 
 /* Estilos para o botão de exportação PDF */
@@ -168,3 +288,4 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
+
