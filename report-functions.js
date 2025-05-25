@@ -47,7 +47,8 @@ function generateReport() {
     
     // Filtrar tarefas pelo período
     const filteredTasks = tasks.filter(task => {
-        return task.startTime >= startDate && task.startTime <= endDate;
+        const taskStartDate = new Date(task.startTime); // Convertendo para Date
+        return taskStartDate >= startDate && taskStartDate <= endDate;
     });
     
     // Agrupar tarefas por nome
