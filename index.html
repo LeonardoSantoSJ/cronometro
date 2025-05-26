@@ -147,6 +147,7 @@
                                                     <th>Fim</th>
                                                     <th>Duração</th>
                                                     <th>Data</th>
+                                                    <th>Ações</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="history-table-body">
@@ -239,3 +240,35 @@
     <script src="integration.js"></script>
 </body>
 </html>
+
+<!-- Modal para editar tarefa -->
+<div class="modal fade" id="edit-task-modal" tabindex="-1" aria-labelledby="edit-task-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="edit-task-modal-label">Editar Tarefa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="edit-task-name" class="form-label">Nome da tarefa</label>
+                    <input type="text" class="form-control" id="edit-task-name">
+                </div>
+                <div class="mb-3">
+                    <label for="edit-start-time" class="form-label">Início</label>
+                    <input type="datetime-local" class="form-control" id="edit-start-time">
+                </div>
+                <div class="mb-3">
+                    <label for="edit-end-time" class="form-label">Fim</label>
+                    <input type="datetime-local" class="form-control" id="edit-end-time">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="save-edited-task-btn">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+                <!-- Navegação entre abas -->

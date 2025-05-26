@@ -9,6 +9,7 @@ let tasks = []; // Array para armazenar tarefas concluídas
 
 // Chave para localStorage
 const TIMER_STATE_KEY = "timerState";
+const TASKS_KEY = "tasks"; // Chave para tarefas concluídas
 
 // Elementos DOM
 const timerDisplay = document.getElementById("timer");
@@ -23,7 +24,7 @@ const resumeBtn = document.getElementById("resume-btn");
 const stopBtn = document.getElementById("stop-btn");
 const timerContainer = document.querySelector(".timer-display");
 
-// Modal elements
+// Modal elements (Finalizar Tarefa)
 const renameTaskModalEl = document.getElementById("rename-task-modal");
 const renameTaskModal = new bootstrap.Modal(renameTaskModalEl);
 const finalTaskNameInput = document.getElementById("final-task-name");
@@ -32,9 +33,26 @@ const modalEndTime = document.getElementById("modal-end-time");
 const modalDuration = document.getElementById("modal-duration");
 const saveTaskBtn = document.getElementById("save-task-btn");
 
+// Modal elements (Editar Tarefa)
+const editTaskModalEl = document.getElementById("edit-task-modal"); // Precisa ser criado no HTML
+let editTaskModal; // Será inicializado no DOMContentLoaded
+const editTaskNameInput = document.getElementById("edit-task-name");
+const editStartTimeInput = document.getElementById("edit-start-time");
+const editEndTimeInput = document.getElementById("edit-end-time");
+const saveEditedTaskBtn = document.getElementById("save-edited-task-btn");
+let editingTaskId = null; // Guarda o ID da tarefa sendo editada
+
 // Inicialização
 document.addEventListener("DOMContentLoaded", () => {
     console.log("DOM fully loaded and parsed");
+
+    // Inicializa o modal de edição
+    if (editTaskModalEl) {
+        editTaskModal = new bootstrap.Modal(editTaskModalEl);
+    } else {
+        console.error("Edit task modal element not found!");
+    }
+
     loadTasks(); // Carregar tarefas concluídas
     restoreTimerState(); // Restaurar estado do cronômetro, se houver
 
@@ -57,15 +75,13 @@ function setupEventListeners() {
     stopBtn.addEventListener("click", stopTimer);
     predefinedTasksSelect.addEventListener("change", updateTaskName);
     customTaskInput.addEventListener("input", updateTaskName);
-    // saveTaskBtn listener is now set dynamically in stopTimer
+    // saveTaskBtn listener é definido dinamicamente em stopTimer
+    // saveEditedTaskBtn listener é definido abaixo
 
-    if (!renameTaskModal) {
-        console.warn("Modal instance was not created, attempting again.");
-        try {
-            renameTaskModal = new bootstrap.Modal(renameTaskModalEl);
-        } catch (e) {
-            console.error("Failed to create modal instance:", e);
-        }
+    if (saveEditedTaskBtn) {
+        saveEditedTaskBtn.addEventListener("click", saveEditedTask);
+    } else {
+        console.error("Save edited task button not found!");
     }
 
     document.getElementById("apply-filter-btn").addEventListener("click", applyHistoryFilter);
@@ -82,31 +98,22 @@ function setupEventListeners() {
     console.log("Event listeners setup complete");
 }
 
-// --- Funções de Persistência CORRIGIDAS --- 
+// --- Funções de Persistência --- 
 
-// Salva o estado atual (chamado em beforeunload)
 function saveCurrentTimerState() {
-    if (!isRunning) {
-        // Se não está rodando, não salva (ou já foi limpo por stopTimer)
-        return;
-    }
-
-    // Calcula o tempo acumulado até o momento atual
+    if (!isRunning) return;
     let currentTotalPausedTime = pausedTime;
     if (!isPaused) {
-        // Se estava rodando, adiciona o tempo desde a última referência
         currentTotalPausedTime += (Date.now() - referenceTime);
     }
-
     const state = {
-        absoluteStartTime: absoluteStartTime, // Timestamp do início real
-        referenceTime: Date.now(), // Timestamp de quando o estado foi salvo
-        pausedTime: currentTotalPausedTime, // Tempo total acumulado (incluindo o último trecho rodando)
+        absoluteStartTime: absoluteStartTime,
+        referenceTime: Date.now(),
+        pausedTime: currentTotalPausedTime,
         isRunning: isRunning,
-        isPaused: isPaused, // Salva o estado real (rodando ou pausado)
+        isPaused: isPaused,
         taskName: currentTaskName.textContent
     };
-
     try {
         localStorage.setItem(TIMER_STATE_KEY, JSON.stringify(state));
         console.log("Timer state saved on beforeunload:", state);
@@ -115,15 +122,12 @@ function saveCurrentTimerState() {
     }
 }
 
-// Salva o estado (chamado em start, pause, resume)
 function saveTimerState() {
-    if (!isRunning) {
-        return; // Não salva se não estiver rodando
-    }
+    if (!isRunning) return;
     const state = {
         absoluteStartTime: absoluteStartTime,
-        referenceTime: referenceTime, // Timestamp da última ação (start, resume, pause)
-        pausedTime: pausedTime, // Tempo acumulado *enquanto* pausado
+        referenceTime: referenceTime,
+        pausedTime: pausedTime,
         isRunning: isRunning,
         isPaused: isPaused,
         taskName: currentTaskName.textContent
@@ -136,7 +140,6 @@ function saveTimerState() {
     }
 }
 
-// Restaura o estado ao carregar a página
 function restoreTimerState() {
     console.log("Attempting to restore timer state...");
     let state;
@@ -149,7 +152,6 @@ function restoreTimerState() {
         state = JSON.parse(storedState);
         console.log("Saved state found:", state);
 
-        // Validação básica do estado carregado
         if (typeof state.absoluteStartTime !== 'number' || 
             typeof state.pausedTime !== 'number' || 
             typeof state.isRunning !== 'boolean' ||
@@ -162,33 +164,26 @@ function restoreTimerState() {
 
     } catch (e) {
         console.error("Error reading or parsing timer state from localStorage:", e);
-        clearTimerState(); // Limpa estado inválido
+        clearTimerState();
         return;
     }
 
     if (state.isRunning) {
-        // Restaura variáveis globais
         absoluteStartTime = state.absoluteStartTime;
-        pausedTime = state.pausedTime; // Tempo acumulado até o save
-        isRunning = state.isRunning; // true
-        isPaused = state.isPaused; // Estado real (true ou false)
-        
-        // Restaura UI básica
+        pausedTime = state.pausedTime;
+        isRunning = state.isRunning;
+        isPaused = state.isPaused;
         currentTaskName.textContent = state.taskName;
         startTimeDisplay.textContent = formatTime(new Date(absoluteStartTime));
         endTimeDisplay.textContent = "--:--:--";
         syncTaskSelectionUI(state.taskName);
 
-        // Ajusta o tempo e o estado com base no tempo offline
         const timeElapsedSinceSave = Date.now() - state.referenceTime;
         console.log(`Time elapsed since save: ${timeElapsedSinceSave} ms`);
 
         if (isPaused) {
-            // Se estava PAUSADO quando salvou, o tempo acumulado é o que foi salvo.
-            // Não precisa adicionar timeElapsedSinceSave.
-            referenceTime = state.referenceTime; // Mantém a referência de quando pausou/salvou
+            referenceTime = state.referenceTime;
             timerDisplay.textContent = formatDuration(pausedTime);
-            // Configura botões para estado pausado
             pauseBtn.disabled = true;
             resumeBtn.disabled = false;
             stopBtn.disabled = false;
@@ -196,27 +191,21 @@ function restoreTimerState() {
             timerContainer.classList.add("timer-paused");
             timerContainer.classList.remove("timer-running");
             console.log("Timer restored to PAUSED state.");
-
         } else {
-            // Se estava RODANDO quando salvou, adiciona o tempo offline ao tempo acumulado.
-            pausedTime += timeElapsedSinceSave; 
-            referenceTime = Date.now(); // Define a nova referência como agora
+            pausedTime += timeElapsedSinceSave;
+            referenceTime = Date.now();
             timerDisplay.textContent = formatDuration(pausedTime);
-            // Configura botões para estado rodando
             pauseBtn.disabled = false;
             resumeBtn.disabled = true;
             stopBtn.disabled = false;
             startBtn.disabled = true;
             timerContainer.classList.add("timer-running");
             timerContainer.classList.remove("timer-paused");
-
-            // Reinicia o intervalo do timer
             if (timer) clearInterval(timer);
             timer = setInterval(updateTimerDisplay, 1000);
             console.log("Timer restored to RUNNING state. Interval restarted.");
         }
     } else {
-        // Se o estado salvo indicava que não estava rodando, limpa.
         console.log("Saved state indicates timer was not running. Clearing state.");
         clearTimerState();
     }
@@ -231,18 +220,16 @@ function clearTimerState() {
     }
 }
 
-// --- Funções do Cronômetro Modificadas ---
+// --- Funções do Cronômetro --- 
 
 function startTimer() {
     console.log("startTimer called");
     if (isRunning) return;
-
     const taskName = getSelectedTaskName();
     if (!taskName) {
         alert("Por favor, selecione ou digite o nome da tarefa antes de iniciar o cronômetro.");
         return;
     }
-
     const now = Date.now();
     absoluteStartTime = now;
     referenceTime = now;
@@ -250,148 +237,109 @@ function startTimer() {
     isRunning = true;
     isPaused = false;
     console.log("Timer started. Absolute Start:", new Date(absoluteStartTime));
-
     updateTimerDisplay();
     startTimeDisplay.textContent = formatTime(new Date(absoluteStartTime));
     endTimeDisplay.textContent = "--:--:--";
     currentTaskName.textContent = taskName;
-
     startBtn.disabled = true;
     pauseBtn.disabled = false;
     resumeBtn.disabled = true;
     stopBtn.disabled = false;
     timerContainer.classList.add("timer-running");
     timerContainer.classList.remove("timer-paused");
-
     if (timer) clearInterval(timer);
     timer = setInterval(updateTimerDisplay, 1000);
     console.log("Timer interval set");
-
     saveTimerState();
 }
 
 function pauseTimer() {
     console.log("pauseTimer called");
     if (!isRunning || isPaused) return;
-
     clearInterval(timer);
     const now = Date.now();
-    pausedTime += (now - referenceTime); // Acumula tempo desde a última referência (start ou resume)
+    pausedTime += (now - referenceTime);
     isPaused = true;
-    referenceTime = now; // Atualiza referência para o momento da pausa
+    referenceTime = now;
     console.log("Timer paused. Accumulated pausedTime (ms):", pausedTime);
-
     pauseBtn.disabled = true;
     resumeBtn.disabled = false;
     timerContainer.classList.remove("timer-running");
     timerContainer.classList.add("timer-paused");
-
-    saveTimerState(); // Salva o estado pausado
+    saveTimerState();
 }
 
 function resumeTimer() {
     console.log("resumeTimer called");
     if (!isRunning || !isPaused) return;
-
     isPaused = false;
-    referenceTime = Date.now(); // Define nova referência para o reinício
+    referenceTime = Date.now();
     console.log("Timer resumed. New referenceTime:", new Date(referenceTime));
-
     pauseBtn.disabled = false;
     resumeBtn.disabled = true;
     timerContainer.classList.add("timer-running");
     timerContainer.classList.remove("timer-paused");
-
     if (timer) clearInterval(timer);
     timer = setInterval(updateTimerDisplay, 1000);
     console.log("Timer interval restarted after resume");
-
-    saveTimerState(); // Salva o estado de retomada
+    saveTimerState();
 }
 
-// stopTimer CORRIGIDO para garantir que absoluteStartTime seja válido
 function stopTimer() {
     console.log("stopTimer called");
     if (!isRunning) {
         console.warn("stopTimer called while not running");
         return;
     }
-
-    // Garante que temos um absoluteStartTime válido (deveria ter sido restaurado ou definido em startTimer)
     if (typeof absoluteStartTime !== 'number' || isNaN(absoluteStartTime)) {
         console.error("stopTimer critical error: absoluteStartTime is invalid!", absoluteStartTime);
         alert("Erro crítico: O horário de início da tarefa é inválido. Não é possível parar ou salvar.");
-        // Tenta resetar para evitar mais problemas
         resetUIAndState(); 
         return;
     }
-
     clearInterval(timer);
-    const now = Date.now(); // Timestamp final
+    const now = Date.now();
     let totalTimeMs;
-
     if (isPaused) {
-        totalTimeMs = pausedTime; // Tempo acumulado até a pausa
+        totalTimeMs = pausedTime;
     } else {
-        // Tempo acumulado + tempo desde a última referência (start/resume)
         totalTimeMs = pausedTime + (now - referenceTime);
     }
     console.log("Timer stopped. Absolute Start:", new Date(absoluteStartTime), "End:", new Date(now), "Total elapsed time (ms):", totalTimeMs);
-
-    // Atualiza UI
     endTimeDisplay.textContent = formatTime(new Date(now));
-
-    // Prepara dados para o modal
     const taskName = currentTaskName.textContent;
     finalTaskNameInput.value = taskName;
     modalStartTime.textContent = formatTime(new Date(absoluteStartTime));
     modalEndTime.textContent = formatTime(new Date(now));
     modalDuration.textContent = formatDuration(totalTimeMs);
     console.log("Modal data prepared:", { taskName, startTime: modalStartTime.textContent, endTime: modalEndTime.textContent, duration: modalDuration.textContent });
-
-    // Limpa estado persistido ANTES de mostrar o modal
     clearTimerState();
-
-    // Resetar estado lógico (isRunning, isPaused) ANTES do modal
-    const savedAbsoluteStartTime = absoluteStartTime; // Salva antes de resetar
+    const savedAbsoluteStartTime = absoluteStartTime;
     isRunning = false;
     isPaused = false;
     pausedTime = 0;
     referenceTime = undefined;
-    absoluteStartTime = undefined; // Limpa aqui, mas passamos o valor salvo para saveTask
-
-    // Atualiza botões para estado parado
+    absoluteStartTime = undefined;
     startBtn.disabled = false;
     pauseBtn.disabled = true;
     resumeBtn.disabled = true;
     stopBtn.disabled = true;
     timerContainer.classList.remove("timer-running", "timer-paused");
-
-    // Mostrar modal
     if (renameTaskModal) {
-        // Remove listener antigo para evitar duplicação
         saveTaskBtn.onclick = null; 
         renameTaskModalEl.removeEventListener('hidden.bs.modal', handleModalClose);
-
-        // Passa os dados necessários (timestamps numéricos) para saveTask
         saveTaskBtn.onclick = () => saveTask(taskName, savedAbsoluteStartTime, now, totalTimeMs);
-        // Limpa estado se o modal for fechado sem salvar
         renameTaskModalEl.addEventListener('hidden.bs.modal', handleModalClose, { once: true });
         renameTaskModal.show();
         console.log("Rename task modal shown");
     } else {
         console.error("Cannot show modal, instance is not available.");
         alert("Erro ao abrir a janela para salvar a tarefa.");
-        resetUIAndState(); // Reseta a UI se o modal falhar
+        resetUIAndState();
     }
 }
 
-// Chamado quando o modal é fechado (sem clicar em salvar)
 function handleModalClose(event) {
-    // O event.target no 'hidden.bs.modal' é o próprio modal, não o botão clicado.
-    // A lógica de só resetar se não foi 'salvar' é feita pelo fato de que
-    // saveTaskBtn.onclick chama saveTask, que por sua vez chama resetUIAndState.
-    // Se chegou aqui, significa que saveTask não foi chamado.
     console.log("Modal closed without saving. Resetting UI.");
     resetUIAndState();
 }
@@ -403,25 +351,21 @@ function updateTimerDisplay() {
     } else if (isPaused) {
         elapsedTime = pausedTime;
     } else {
-        // Rodando: tempo acumulado + tempo desde a última referência
         elapsedTime = pausedTime + (Date.now() - referenceTime);
     }
     timerDisplay.textContent = formatDuration(elapsedTime);
 }
 
-// --- Funções Auxiliares Modificadas ---
+// --- Funções Auxiliares --- 
 
 function resetUIAndState() {
     console.log("Resetting UI and state");
-    // Limpa inputs e displays
     predefinedTasksSelect.value = "";
     customTaskInput.value = "";
     currentTaskName.textContent = "Nenhuma tarefa selecionada";
     timerDisplay.textContent = "00:00:00";
     startTimeDisplay.textContent = "--:--:--";
     endTimeDisplay.textContent = "--:--:--";
-
-    // Resetar variáveis de estado
     if (timer) {
         clearInterval(timer);
         timer = null;
@@ -431,15 +375,11 @@ function resetUIAndState() {
     pausedTime = 0;
     isRunning = false;
     isPaused = false;
-
-    // Resetar botões
     startBtn.disabled = false;
     pauseBtn.disabled = true;
     resumeBtn.disabled = true;
     stopBtn.disabled = true;
     timerContainer.classList.remove("timer-running", "timer-paused");
-
-    // Limpa estado do localStorage (segurança extra)
     clearTimerState();
     console.log("UI and state reset complete");
 }
@@ -456,31 +396,25 @@ function syncTaskSelectionUI(taskName) {
     }
 }
 
-// --- Funções de Armazenamento de Tarefas Concluídas (Modificadas) ---
+// --- Funções de Armazenamento de Tarefas Concluídas --- 
 
-// saveTask CORRIGIDO para validar timestamps recebidos
 function saveTask(originalTaskName, taskStartTimeStamp, taskEndTimeStamp, taskDurationMs) {
     console.log("saveTask called with:", { originalTaskName, taskStartTimeStamp, taskEndTimeStamp, taskDurationMs });
     const finalTaskName = finalTaskNameInput.value.trim();
     if (!finalTaskName) {
         alert("Por favor, insira um nome para a tarefa.");
         console.warn("saveTask aborted: No final task name provided.");
-        return; // Permite corrigir no modal
+        return;
     }
-
-    // Validação crucial dos timestamps recebidos de stopTimer
     if (typeof taskStartTimeStamp !== 'number' || isNaN(taskStartTimeStamp) || 
         typeof taskEndTimeStamp !== 'number' || isNaN(taskEndTimeStamp)) {
         console.error("saveTask critical error: Invalid start or end timestamp provided.", { taskStartTimeStamp, taskEndTimeStamp });
         alert("Erro crítico: Horário de início ou fim inválido ao tentar salvar. Não foi possível salvar.");
-        renameTaskModal.hide(); // Esconde o modal em caso de erro grave
-        // resetUIAndState() será chamado pelo hidden.bs.modal listener
+        renameTaskModal.hide();
         return;
     }
-
     const taskStartTimeDate = new Date(taskStartTimeStamp);
     const taskEndTimeDate = new Date(taskEndTimeStamp);
-
     console.log("Creating task object with validated dates:", { 
         name: finalTaskName, 
         startTime: taskStartTimeDate, 
@@ -488,17 +422,15 @@ function saveTask(originalTaskName, taskStartTimeStamp, taskEndTimeStamp, taskDu
         duration: formatDuration(taskDurationMs), 
         date: formatDate(taskStartTimeDate) 
     });
-
     const task = {
         id: Date.now(),
         name: finalTaskName,
-        startTime: taskStartTimeDate.toISOString(), // Salva como ISO string
-        endTime: taskEndTimeDate.toISOString(), // Salva como ISO string
+        startTime: taskStartTimeDate.toISOString(),
+        endTime: taskEndTimeDate.toISOString(),
         duration: formatDuration(taskDurationMs),
         date: formatDate(taskStartTimeDate)
     };
     console.log("Task object created:", task);
-
     try {
         tasks.push(task);
         saveTasksToLocalStorage();
@@ -507,27 +439,22 @@ function saveTask(originalTaskName, taskStartTimeStamp, taskEndTimeStamp, taskDu
         console.error("Error saving task list:", error);
         alert("Erro ao salvar a lista de tarefas.");
         renameTaskModal.hide();
-        // resetUIAndState() será chamado pelo hidden.bs.modal listener
         return;
     }
-
     try {
-        updateHistoryTable();
+        updateHistoryTable(); // Atualiza a tabela de histórico
         console.log("History table updated.");
     } catch (error) {
         console.error("Error updating history table:", error);
-        // Não impede o fluxo principal, mas informa o usuário
         alert("Erro ao atualizar a tabela de histórico, mas a tarefa foi salva.");
     }
-
     renameTaskModal.hide();
-    // resetUIAndState() será chamado pelo hidden.bs.modal listener
     console.log("saveTask finished successfully.");
 }
 
 function saveTasksToLocalStorage() {
     try {
-        localStorage.setItem("tasks", JSON.stringify(tasks));
+        localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
         console.log("Completed tasks saved to localStorage");
     } catch (e) {
         console.error("Error saving completed tasks to localStorage:", e);
@@ -537,27 +464,27 @@ function saveTasksToLocalStorage() {
 
 function loadTasks() {
     console.log("loadTasks started");
-    const storedTasks = localStorage.getItem("tasks");
+    const storedTasks = localStorage.getItem(TASKS_KEY);
     if (storedTasks) {
         try {
             const parsedTasks = JSON.parse(storedTasks);
             tasks = parsedTasks.map(task => {
                 const startTime = task.startTime ? new Date(task.startTime) : null;
                 const endTime = task.endTime ? new Date(task.endTime) : null;
-                if (!startTime || isNaN(startTime) || !endTime || isNaN(endTime)) {
-                    console.warn("Invalid date found in stored task, skipping task:", task);
+                if (!startTime || isNaN(startTime) || !endTime || isNaN(endTime) || !task.id) {
+                    console.warn("Invalid data found in stored task, skipping task:", task);
                     return null;
                 }
-                // Retorna a tarefa com datas ISO string como no localStorage
+                // Garante que todas as tarefas tenham um ID (para compatibilidade)
+                if (!task.id) task.id = new Date(task.startTime).getTime(); 
                 return { ...task, startTime: task.startTime, endTime: task.endTime };
             }).filter(task => task !== null);
-
             console.log("Tasks loaded and validated from localStorage:", tasks);
             updateHistoryTable();
         } catch (e) {
             console.error("Error parsing tasks from localStorage:", e);
             tasks = [];
-            localStorage.removeItem("tasks");
+            localStorage.removeItem(TASKS_KEY);
         }
     } else {
         console.log("No completed tasks found in localStorage.");
@@ -565,7 +492,7 @@ function loadTasks() {
     }
 }
 
-// --- Funções de Histórico e Relatório (sem modificações relevantes) ---
+// --- Funções de Histórico e Relatório --- 
 
 function updateHistoryTable(filteredTasks = tasks) {
     console.log("Updating history table with tasks:", filteredTasks);
@@ -577,13 +504,14 @@ function updateHistoryTable(filteredTasks = tasks) {
     tableBody.innerHTML = "";
 
     if (filteredTasks.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5" class="text-center">Nenhuma tarefa encontrada.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Nenhuma tarefa encontrada.</td></tr>'; // Colspan 6 agora
         return;
     }
 
-    filteredTasks.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+    // Ordena as tarefas pela data de início mais recente
+    const sortedTasks = [...filteredTasks].sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
 
-    filteredTasks.forEach(task => {
+    sortedTasks.forEach(task => {
         const row = tableBody.insertRow();
         const startTimeDate = new Date(task.startTime);
         const endTimeDate = new Date(task.endTime);
@@ -594,10 +522,135 @@ function updateHistoryTable(filteredTasks = tasks) {
             <td>${formatTime(endTimeDate)}</td>
             <td>${task.duration}</td>
             <td>${task.date}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editTask(${task.id})">
+                    <i class="bi bi-pencil-square"></i> Editar
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteTask(${task.id})">
+                    <i class="bi bi-trash"></i> Excluir
+                </button>
+            </td>
         `;
     });
-    console.log("History table updated successfully.");
+    console.log("History table updated successfully with action buttons.");
 }
+
+function deleteTask(taskId) {
+    console.log(`Attempting to delete task with ID: ${taskId}`);
+    if (!confirm("Tem certeza que deseja excluir esta tarefa?")) {
+        return;
+    }
+
+    const taskIndex = tasks.findIndex(task => task.id === taskId);
+    if (taskIndex > -1) {
+        tasks.splice(taskIndex, 1);
+        saveTasksToLocalStorage();
+        updateHistoryTable(); // Atualiza a tabela de histórico
+        // Opcional: Atualizar relatório se estiver visível
+        // if (document.getElementById('reports-tab-pane').classList.contains('show')) {
+        //     generateReport(); 
+        // }
+        console.log(`Task with ID ${taskId} deleted successfully.`);
+    } else {
+        console.error(`Task with ID ${taskId} not found for deletion.`);
+        alert("Erro: Tarefa não encontrada para exclusão.");
+    }
+}
+
+function editTask(taskId) {
+    console.log(`Attempting to edit task with ID: ${taskId}`);
+    const taskToEdit = tasks.find(task => task.id === taskId);
+
+    if (!taskToEdit) {
+        console.error(`Task with ID ${taskId} not found for editing.`);
+        alert("Erro: Tarefa não encontrada para edição.");
+        return;
+    }
+
+    if (!editTaskModal || !editTaskNameInput || !editStartTimeInput || !editEndTimeInput) {
+        console.error("Edit modal elements are not available.");
+        alert("Erro: O formulário de edição não está pronto.");
+        return;
+    }
+
+    // Preenche o modal com os dados da tarefa
+    editingTaskId = taskId;
+    editTaskNameInput.value = taskToEdit.name;
+    // Formata as datas para datetime-local input (YYYY-MM-DDTHH:mm)
+    editStartTimeInput.value = formatDateTimeLocal(new Date(taskToEdit.startTime));
+    editEndTimeInput.value = formatDateTimeLocal(new Date(taskToEdit.endTime));
+
+    // Abre o modal
+    editTaskModal.show();
+}
+
+function saveEditedTask() {
+    if (editingTaskId === null) {
+        console.error("No task ID is set for editing.");
+        return;
+    }
+
+    const taskIndex = tasks.findIndex(task => task.id === editingTaskId);
+    if (taskIndex === -1) {
+        console.error(`Task with ID ${editingTaskId} not found for saving edits.`);
+        alert("Erro: Tarefa não encontrada para salvar as alterações.");
+        editTaskModal.hide();
+        editingTaskId = null;
+        return;
+    }
+
+    const newName = editTaskNameInput.value.trim();
+    const newStartTimeStr = editStartTimeInput.value;
+    const newEndTimeStr = editEndTimeInput.value;
+
+    if (!newName) {
+        alert("O nome da tarefa não pode ficar vazio.");
+        return;
+    }
+    if (!newStartTimeStr || !newEndTimeStr) {
+        alert("As datas e horas de início e fim são obrigatórias.");
+        return;
+    }
+
+    try {
+        const newStartTime = new Date(newStartTimeStr);
+        const newEndTime = new Date(newEndTimeStr);
+
+        if (isNaN(newStartTime) || isNaN(newEndTime)) {
+            throw new Error("Formato de data/hora inválido.");
+        }
+
+        if (newEndTime <= newStartTime) {
+            alert("A hora de fim deve ser posterior à hora de início.");
+            return;
+        }
+
+        const newDurationMs = newEndTime.getTime() - newStartTime.getTime();
+
+        // Atualiza a tarefa no array
+        tasks[taskIndex].name = newName;
+        tasks[taskIndex].startTime = newStartTime.toISOString();
+        tasks[taskIndex].endTime = newEndTime.toISOString();
+        tasks[taskIndex].duration = formatDuration(newDurationMs);
+        tasks[taskIndex].date = formatDate(newStartTime);
+
+        saveTasksToLocalStorage();
+        updateHistoryTable();
+        // Opcional: Atualizar relatório
+        // if (document.getElementById('reports-tab-pane').classList.contains('show')) {
+        //     generateReport(); 
+        // }
+
+        console.log(`Task with ID ${editingTaskId} updated successfully.`);
+        editTaskModal.hide();
+        editingTaskId = null;
+
+    } catch (error) {
+        console.error("Error processing edited task data:", error);
+        alert(`Erro ao salvar as alterações: ${error.message}`);
+    }
+}
+
 
 function applyHistoryFilter() {
     console.log("Applying history filter...");
@@ -607,24 +660,30 @@ function applyHistoryFilter() {
         alert("Por favor, selecione uma data para filtrar.");
         return;
     }
-    const filterDate = new Date(filterDateValue + "T00:00:00");
+    // Adiciona T00:00:00 para garantir que a data seja interpretada no fuso horário local
+    const filterDate = new Date(filterDateValue + "T00:00:00"); 
 
     console.log(`Filtering by type: ${filterType}, date: ${filterDate.toDateString()}`);
 
     const filteredTasks = tasks.filter(task => {
         const taskStartDate = new Date(task.startTime);
-        taskStartDate.setHours(0, 0, 0, 0);
+        // Zera horas, minutos, segundos e milissegundos para comparar apenas o dia
+        taskStartDate.setHours(0, 0, 0, 0); 
+        filterDate.setHours(0, 0, 0, 0); // Garante que a data do filtro também esteja zerada
 
         if (filterType === "day") {
             return taskStartDate.getTime() === filterDate.getTime();
         } else if (filterType === "week") {
             const weekStart = new Date(filterDate);
-            weekStart.setDate(filterDate.getDate() - filterDate.getDay());
+            weekStart.setDate(filterDate.getDate() - filterDate.getDay()); // Dia da semana (0=Domingo)
             weekStart.setHours(0, 0, 0, 0);
             const weekEnd = new Date(weekStart);
             weekEnd.setDate(weekStart.getDate() + 6);
-            weekEnd.setHours(23, 59, 59, 999);
-            return taskStartDate >= weekStart && taskStartDate <= weekEnd;
+            weekEnd.setHours(23, 59, 59, 999); // Final do dia do último dia da semana
+            // Compara a data da tarefa (zerada) com o início e fim da semana
+            const taskDateOnly = new Date(task.startTime);
+            taskDateOnly.setHours(0,0,0,0);
+            return taskDateOnly >= weekStart && taskDateOnly <= weekEnd;
         } else if (filterType === "month") {
             return taskStartDate.getFullYear() === filterDate.getFullYear() &&
                    taskStartDate.getMonth() === filterDate.getMonth();
@@ -658,7 +717,6 @@ function formatDuration(ms) {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-
     return [
         hours.toString().padStart(2, "0"),
         minutes.toString().padStart(2, "0"),
@@ -676,6 +734,19 @@ function formatDate(date) {
         console.error("Error formatting date:", e, "Date:", date);
         return "Erro";
     }
+}
+
+// Função para formatar Date para input datetime-local (YYYY-MM-DDTHH:mm)
+function formatDateTimeLocal(date) {
+    if (!date || !(date instanceof Date) || isNaN(date)) {
+        return "";
+    }
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 function getSelectedTaskName() {
@@ -697,28 +768,20 @@ function updateTaskName() {
 
 function escapeHTML(str) {
     if (!str) return "";
-    return str.replace(/[&<>"]/g, function (s) { // Removed ' and / for simplicity, less critical here
-        const entityMap = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;'
-        };
+    const entityMap = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;'
+    };
+    return str.replace(/[&<>]/g, function (s) { // Removido " para simplificar
         return entityMap[s];
     });
 }
 
-// Funções de relatório e PDF (presumidas existentes)
-if (typeof generateReport === 'undefined') {
-    window.generateReport = function() {
-        console.warn('generateReport function is not defined.');
-        alert('Funcionalidade de gerar relatório não implementada.');
-    }
-}
-if (typeof exportToPDF === 'undefined') {
-    window.exportToPDF = function() {
-        console.warn('exportToPDF function is not defined.');
-        alert('Funcionalidade de exportar PDF não implementada.');
-    }
-}
+// Funções de relatório e PDF (presumidas existentes em report-functions.js e pdf-export.js)
+// A função generateReport() em report-functions.js já usa a variável global 'tasks',
+// então ao deletar/editar uma tarefa e chamar saveTasksToLocalStorage() e updateHistoryTable(),
+// o próximo generateReport() já usará a lista atualizada.
+
 
